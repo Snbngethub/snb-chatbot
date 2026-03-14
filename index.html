@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNBNetwork Chatbot Widget</title>
+    
+    <!-- Import Google Fonts to match the clean, modern look of the screenshot -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Import Phosphor Icons for elegant UI icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Tailwind CSS for rapid styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configure Tailwind with SNBNetwork Brand Colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        snb: {
+                            blue: '#4F75A4',     /* The accent blue from the logo & button */
+                            dark: '#414541',     /* The dark text color */
+                            light: '#F4F5F5',    /* The light background color */
+                            card: '#FFFFFF',     /* White card background */
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 40px -10px rgba(0,0,0,0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar for the chat area */
+        #chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-messages::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        
+        /* Smooth fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-animate {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        /* Typing indicator dots */
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-snb-light h-screen font-sans flex items-center justify-center p-0 sm:p-6">
+
+    <!-- Main Chat Container (Full Page Layout) -->
+    <div class="w-full max-w-4xl h-full sm:h-[90vh] bg-white sm:rounded-3xl shadow-soft flex flex-col overflow-hidden border border-gray-100">
+        
+        <!-- Header -->
+        <div class="bg-white px-6 py-5 border-b border-gray-100 flex items-center gap-4 shadow-sm z-10">
+            <div class="w-12 h-12 bg-snb-blue bg-opacity-10 rounded-full flex items-center justify-center text-snb-blue">
+                <i class="ph-fill ph-robot text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-snb-dark text-lg">Sisters <span class="text-snb-blue">&</span> Brothers Network</h1>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    <span class="text-sm text-gray-500 font-medium">Assistant Online</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div id="chat-messages" class="flex-1 p-6 overflow-y-auto bg-[#fafafa] flex flex-col gap-6">
+            <!-- Initial Greeting -->
+            <div class="flex items-end gap-3 message-animate">
+                <div class="w-10 h-10 rounded-full bg-snb-blue bg-opacity-10 flex-shrink-0 flex items-center justify-center text-snb-blue">
+                    <i class="ph-fill ph-robot text-lg"></i>
+                </div>
+                <div class="bg-white text-[15px] text-snb-dark p-4 rounded-2xl rounded-bl-sm shadow-sm border border-gray-100 max-w-[85%] leading-relaxed">
+                    Hello! Welcome to the Sisters & Brothers Network assistant. How can I help you find trusted businesses today?
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 sm:p-6 bg-white border-t border-gray-100">
+            <form id="chat-form" onsubmit="handleSend(event)" class="relative flex items-center max-w-4xl mx-auto">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    placeholder="Type your message here..." 
+                    class="w-full bg-gray-50 text-[15px] text-snb-dark placeholder-gray-400 rounded-full py-4 pl-6 pr-14 focus:outline-none focus:ring-2 focus:ring-snb-blue focus:bg-white transition-all border border-gray-200"
+                    autocomplete="off"
+                    autofocus
+                >
+                <button type="submit" class="absolute right-2 w-11 h-11 bg-snb-blue text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors shadow-sm">
+                    <i class="ph-fill ph-paper-plane-right text-lg"></i>
+                </button>
+            </form>
+            <div class="text-center mt-3">
+                <span class="text-xs text-gray-400 font-medium">Powered by Gemini AI</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot Logic -->
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+
+        async function handleSend(event) {
+            event.preventDefault();
+            const inputField = document.getElementById('user-input');
+            const message = inputField.value.trim();
+            
+            if (!message) return;
+
+            // 1. Show User Message
+            appendUserMessage(message);
+            inputField.value = '';
+
+            // 2. Show Loading Indicator
+            const loadingId = appendLoadingIndicator();
+
+            // 3. Connect to Netlify Backend
+            try {
+                const response = await fetch('/.netlify/functions/ask-gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message })
+                });
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                
+                removeLoadingIndicator(loadingId);
+                appendBotMessage(data.reply);
+
+            } catch (error) {
+                removeLoadingIndicator(loadingId);
+                appendBotMessage("Sorry, I'm having trouble connecting right now.");
+                console.error("Chat Error:", error);
+            }
+        }
+
+        function appendUserMessage(text) {
+            const html = `
+                <div class="flex justify-end message-animate">
+                    <div class="bg-snb-blue text-white text-[15px] p-4 rounded-2xl rounded-br-sm shadow-sm max-w-[85%] leading-relaxed">
+                        ${escapeHTML(text)}
+                    </div>
+                </div>
+            `;
+            chatMessages.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+        }
+
+        function appendBotMessage(text) {
+            const html = `
+                <div class="flex items-end gap-3 message-animate">
+                    <div class="w-10 h-10 rounded-full bg-snb-blue bg-opacity-10 flex-shrink-0 flex items-center justify-center text-snb-blue">
+                        <i class="ph-fill ph-robot text-lg"></i>
+                    </div>
+                    <div class="bg-white text-[15px] text-snb-dark p-4 rounded-2xl rounded-bl-sm shadow-sm border border-gray-100 max-w-[85%] leading-relaxed">
+                        ${escapeHTML(text)}
+                    </div>
+                </div>
+            `;
+            chatMessages.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+        }
+
+        function appendLoadingIndicator() {
+            const id = 'loading-' + Date.now();
+            const html = `
+                <div id="${id}" class="flex items-end gap-3 message-animate">
+                    <div class="w-10 h-10 rounded-full bg-snb-blue bg-opacity-10 flex-shrink-0 flex items-center justify-center text-snb-blue">
+                        <i class="ph-fill ph-robot text-lg"></i>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl rounded-bl-sm shadow-sm border border-gray-100 flex gap-1.5 items-center h-[52px]">
+                        <div class="w-2.5 h-2.5 bg-snb-blue rounded-full typing-dot opacity-60"></div>
+                        <div class="w-2.5 h-2.5 bg-snb-blue rounded-full typing-dot opacity-60"></div>
+                        <div class="w-2.5 h-2.5 bg-snb-blue rounded-full typing-dot opacity-60"></div>
+                    </div>
+                </div>
+            `;
+            chatMessages.insertAdjacentHTML('beforeend', html);
+            scrollToBottom();
+            return id;
+        }
+
+        function removeLoadingIndicator(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Security helper
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag])
+            );
+        }
+    </script>
+</body>
+</html>
