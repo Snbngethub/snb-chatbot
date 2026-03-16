@@ -15,8 +15,8 @@ exports.handler = async function(event, context) {
             return { statusCode: 200, body: JSON.stringify({ reply: "Error: Netlify GEMINI_API_KEY is missing." }) };
         }
 
-        // 2. Connect to the PUBLIC Gemini 1.5 Flash model using the stable v1 API
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // 2. Connect to the PUBLIC Gemini 1.5 Flash model using the v1beta API (Required for systemInstructions)
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const response = await fetch(apiUrl, {
             method: 'POST',
