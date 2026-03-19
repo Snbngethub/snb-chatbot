@@ -1,1 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNBN Chatbot Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-6">
 
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">SNBN Chatbot Brain</h1>
+
+        <div id="login-section">
+            <input type="email" id="email" placeholder="Email" class="w-full p-3 border rounded mb-4">
+            <input type="password" id="password" placeholder="Password" class="w-full p-3 border rounded mb-4">
+            <button id="login-btn" class="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700">Log In</button>
+            <p id="login-error" class="text-red-500 mt-2 hidden">Invalid credentials.</p>
+        </div>
+
+        <div id="editor-section" class="hidden">
+            <p class="mb-4 text-gray-600">Edit the chatbot's knowledge base below. Changes apply instantly.</p>
+            <textarea id="kb-text" class="w-full h-64 p-3 border rounded mb-4 font-mono text-sm"></textarea>
+            <button id="save-btn" class="w-full bg-green-600 text-white p-3 rounded font-bold hover:bg-green-700">Save Changes</button>
+            <p id="save-status" class="text-green-600 mt-2 hidden text-center font-bold">Saved successfully!</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // ⚠️ PASTE YOUR FIREBASE CONFIG HERE:
+        const firebaseConfig = {
+          apiKey: "YOUR_API_KEY",
+          authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+          projectId: "YOUR_PROJECT_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const docRef = doc(db, "snbn_data", "brain");
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            signInWithEmailAndPassword(auth, email, password)
+                .then(async () => {
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('editor-section').classList.remove('hidden');
+                    
+                    // Load current text from Firestore
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        document.getElementById('kb-text').value = docSnap.data().knowledge_base;
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('login-error').classList.remove('hidden');
+                });
+        });
+
+        document.getElementById('save-btn').addEventListener('click', async () => {
+            const newText = document.getElementById('kb-text').value;
+            await updateDoc(docRef, { knowledge_base: newText });
+            
+            const status = document.getElementById('save-status');
+            status.classList.remove('hidden');
+            setTimeout(() => status.classList.add('hidden'), 3000);
+        });
+    </script>
+</body>
+</html>
