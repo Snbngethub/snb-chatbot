@@ -14,16 +14,18 @@ exports.handler = async function(event, context) {
             return { statusCode: 200, body: JSON.stringify({ reply: "Error: Netlify GEMINI_API_KEY is missing." }) };
         }
 
-        // --- NEW CODE: FETCH THE BRAIN FROM FIREBASE ---
+        // --- NEW CODE: FETCH ALL FIELDS FROM FIREBASE DYNAMICALLY ---
         let knowledgeBaseText = "";
         try {
-            // Using your exact Project ID here
             const firebaseUrl = `https://firestore.googleapis.com/v1/projects/snbnchatbot/databases/(default)/documents/snbn_data/brain`;
             const firestoreResponse = await fetch(firebaseUrl);
             const firestoreData = await firestoreResponse.json();
             
-            if (firestoreData.fields && firestoreData.fields.knowledge_base) {
-                knowledgeBaseText = firestoreData.fields.knowledge_base.stringValue;
+            if (firestoreData.fields) {
+                // Loop through every field Shianne creates and combine them!
+                for (const fieldName in firestoreData.fields) {
+                    knowledgeBaseText += `${fieldName.replace(/_/g, ' ')}:\n${firestoreData.fields[fieldName].stringValue}\n\n`;
+                }
             }
         } catch (dbError) {
             console.error("Could not fetch database:", dbError);
