@@ -9,13 +9,28 @@ exports.handler = async function(event, context) {
 
         if (!userMessage) return { statusCode: 200, body: JSON.stringify({ reply: "Prompt is required" }) };
 
-        // 1. Get the API Key
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return { statusCode: 200, body: JSON.stringify({ reply: "Error: Netlify GEMINI_API_KEY is missing." }) };
         }
 
-        // 2. AUTO-DETECT AVAILABLE MODEL (Bulletproof Fix)
+        // --- NEW CODE: FETCH THE BRAIN FROM FIREBASE ---
+        let knowledgeBaseText = "";
+        try {
+            // Using your exact Project ID here
+            const firebaseUrl = `https://firestore.googleapis.com/v1/projects/snbnchatbot/databases/(default)/documents/snbn_data/brain`;
+            const firestoreResponse = await fetch(firebaseUrl);
+            const firestoreData = await firestoreResponse.json();
+            
+            if (firestoreData.fields && firestoreData.fields.knowledge_base) {
+                knowledgeBaseText = firestoreData.fields.knowledge_base.stringValue;
+            }
+        } catch (dbError) {
+            console.error("Could not fetch database:", dbError);
+        }
+        // -----------------------------------------------
+
+        // AUTO-DETECT AVAILABLE MODEL
         const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
         const listResponse = await fetch(listUrl);
         const listData = await listResponse.json();
@@ -24,12 +39,10 @@ exports.handler = async function(event, context) {
         
         if (listData.models) {
             const availableModels = listData.models.map(m => m.name.replace('models/', ''));
-            // Check what models your specific API key has access to
             if (availableModels.includes('gemini-1.5-flash')) targetModelName = 'gemini-1.5-flash';
             else if (availableModels.includes('gemini-1.5-pro')) targetModelName = 'gemini-1.5-pro';
             else if (availableModels.includes('gemini-pro')) targetModelName = 'gemini-pro';
             else {
-                // Just grab the first model Google allows this key to use
                 const validModel = listData.models.find(m => 
                     m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
                 );
@@ -37,10 +50,8 @@ exports.handler = async function(event, context) {
             }
         }
 
-        // 3. Connect to the auto-detected model
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${targetModelName}:generateContent?key=${apiKey}`;
 
-        // 4. Send request using universal pre-prompt format (Fixes the JSON Payload errors entirely)
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -48,7 +59,14 @@ exports.handler = async function(event, context) {
                 contents: [
                     {
                         role: "user",
-                        parts: [{ text: "System Instruction: You are a helpful, friendly customer support assistant for Sisters & Brothers Network (SNBNetwork), a platform to find trusted, verified businesses all in one place. Keep your answers concise, helpful, and polite. Acknowledge this." }]
+                        parts: [{ text: `System Instruction: You are a helpful customer support assistant for Sisters & Brothers Network (SNBN).
+
+Here is your official Knowledge Base. You MUST use this information to answer questions:
+--- START KNOWLEDGE BASE ---
+${knowledgeBaseText}
+--- END KNOWLEDGE BASE ---
+
+Only use the information provided in the Knowledge Base above. If a user asks a question not covered by the Knowledge Base, politely let them know you don't have that information and direct them to email info@snbnetwork.com. Keep your answers concise, helpful, and polite. Acknowledge this.` }]
                     },
                     {
                         role: "model",
@@ -64,17 +82,14 @@ exports.handler = async function(event, context) {
 
         const data = await response.json();
 
-        // 5. If Google API rejects it, show the exact error in the chat
         if (!response.ok) {
             return { statusCode: 200, body: JSON.stringify({ reply: `API Error (${targetModelName}): ${data.error?.message || response.statusText}` }) };
         }
 
-        // 6. Send successful reply to frontend
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't generate a response.";
         return { statusCode: 200, body: JSON.stringify({ reply: reply }) };
 
     } catch (error) {
-        // If the server crashes, show the crash report in the chat
         return { statusCode: 200, body: JSON.stringify({ reply: `Server Error: ${error.message}` }) };
     }
 };
