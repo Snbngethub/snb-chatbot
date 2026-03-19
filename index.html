@@ -5,18 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SNBNetwork Chatbot Widget</title>
     
-    <!-- Import Google Fonts to match the clean, modern look of the screenshot -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Import Phosphor Icons for elegant UI icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <!-- Tailwind CSS for rapid styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Configure Tailwind with SNBNetwork Brand Colors -->
     <script>
         tailwind.config = {
             theme: {
@@ -76,10 +72,8 @@
 </head>
 <body class="bg-snb-light h-screen font-sans flex items-center justify-center p-0 sm:p-6">
 
-    <!-- Main Chat Container (Full Page Layout) -->
     <div class="w-full max-w-4xl h-full sm:h-[90vh] bg-white sm:rounded-3xl shadow-soft flex flex-col overflow-hidden border border-gray-100">
         
-        <!-- Header -->
         <div class="bg-white px-6 py-5 border-b border-gray-100 flex items-center gap-4 shadow-sm z-10">
             <div class="w-12 h-12 bg-snb-blue bg-opacity-10 rounded-full flex items-center justify-center text-snb-blue">
                 <i class="ph-fill ph-robot text-2xl"></i>
@@ -93,9 +87,7 @@
             </div>
         </div>
 
-        <!-- Chat Messages Area -->
         <div id="chat-messages" class="flex-1 p-6 overflow-y-auto bg-[#fafafa] flex flex-col gap-6">
-            <!-- Initial Greeting -->
             <div class="flex items-end gap-3 message-animate">
                 <div class="w-10 h-10 rounded-full bg-snb-blue bg-opacity-10 flex-shrink-0 flex items-center justify-center text-snb-blue">
                     <i class="ph-fill ph-robot text-lg"></i>
@@ -106,7 +98,6 @@
             </div>
         </div>
 
-        <!-- Input Area -->
         <div class="p-4 sm:p-6 bg-white border-t border-gray-100">
             <form id="chat-form" onsubmit="handleSend(event)" class="relative flex items-center max-w-4xl mx-auto">
                 <input 
@@ -122,12 +113,14 @@
                 </button>
             </form>
             <div class="text-center mt-3">
+                <div style="text-align: right; width: 100%; margin-bottom: 2px;">
+                    <button id="snb-admin-trigger" style="font-size: 11px; color: #9ca3af; background: none; border: none; cursor: pointer;">Admin</button>
+                </div>
                 <span class="text-xs text-gray-400 font-medium">Powered by Gemini AI</span>
             </div>
         </div>
     </div>
 
-    <!-- Chatbot Logic -->
     <script>
         const chatMessages = document.getElementById('chat-messages');
 
@@ -233,6 +226,142 @@
                 }[tag])
             );
         }
+    </script>
+
+    <div id="snb-admin-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99999; justify-content: center; align-items: center; font-family: sans-serif;">
+        <div style="background: white; padding: 24px; border-radius: 12px; width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            
+            <div id="snb-login-view">
+                <h2 style="margin-top: 0; color: #333;">Admin Access</h2>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Log in to edit the AI Knowledge Base.</p>
+                <input type="email" id="snb-admin-email" placeholder="Email" style="width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                <input type="password" id="snb-admin-pass" placeholder="Password" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+                <button id="snb-login-btn" style="width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Log In</button>
+                <button id="snb-close-login" style="width: 100%; padding: 10px; background: transparent; color: #888; border: none; cursor: pointer; margin-top: 5px;">Cancel</button>
+            </div>
+
+            <div id="snb-db-view" style="display: none;">
+                <h2 style="margin-top: 0; display: flex; justify-content: space-between; color: #333; align-items: center;">
+                    Knowledge Base 
+                    <button id="snb-close-db" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #888;">✖</button>
+                </h2>
+                <p style="color: #666; font-size: 13px; margin-bottom: 20px;">Add or delete knowledge blocks. Avoid spaces in the field titles.</p>
+                
+                <div id="snb-fields-container"></div>
+                
+                <button id="snb-add-field-btn" style="width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold;">+ Add New Field</button>
+                
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                <button id="snb-save-db-btn" style="width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">Save All Changes</button>
+                <p id="snb-save-msg" style="color: #10b981; text-align: center; display: none; margin-top: 10px; font-weight: bold;">Saved Successfully! The AI has been updated.</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyCS05pJ4y7MPFCQ3g4s0tug3GTsJWcsUxk",
+          authDomain: "snbnchatbot.firebaseapp.com",
+          projectId: "snbnchatbot",
+          storageBucket: "snbnchatbot.firebasestorage.app",
+          messagingSenderId: "524750776227",
+          appId: "1:524750776227:web:f8b3a3c7689152f6149c16",
+          measurementId: "G-VB6W499PLP"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const docRef = doc(db, "snbn_data", "brain");
+
+        let currentData = {};
+
+        // UI Toggles
+        document.getElementById('snb-admin-trigger').addEventListener('click', () => {
+            document.getElementById('snb-admin-modal').style.display = 'flex';
+        });
+        document.getElementById('snb-close-login').addEventListener('click', () => {
+            document.getElementById('snb-admin-modal').style.display = 'none';
+        });
+        document.getElementById('snb-close-db').addEventListener('click', () => {
+            document.getElementById('snb-admin-modal').style.display = 'none';
+        });
+
+        // Login Logic
+        document.getElementById('snb-login-btn').addEventListener('click', async () => {
+            const email = document.getElementById('snb-admin-email').value;
+            const pass = document.getElementById('snb-admin-pass').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                document.getElementById('snb-login-view').style.display = 'none';
+                document.getElementById('snb-db-view').style.display = 'block';
+                loadData();
+            } catch (e) {
+                alert("Incorrect password or email.");
+            }
+        });
+
+        // Load & Render Data
+        async function loadData() {
+            const snap = await getDoc(docRef);
+            if(snap.exists()) {
+                currentData = snap.data();
+                renderFields();
+            }
+        }
+
+        function renderFields() {
+            const container = document.getElementById('snb-fields-container');
+            container.innerHTML = '';
+            
+            for (const [key, value] of Object.entries(currentData)) {
+                const box = document.createElement('div');
+                box.style.cssText = "border: 1px solid #e5e7eb; padding: 12px; margin-bottom: 12px; border-radius: 8px; background: #f9fafb;";
+                box.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items: center;">
+                        <input type="text" class="field-key" value="${key}" placeholder="Field Title" style="font-weight: bold; width: 80%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <button class="delete-btn" style="background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 6px 10px; font-size: 16px;" title="Delete Field">🗑️</button>
+                    </div>
+                    <textarea class="field-val" placeholder="Paste knowledge here..." style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: sans-serif; resize: vertical;">${value}</textarea>
+                `;
+                
+                // Delete Event
+                box.querySelector('.delete-btn').addEventListener('click', () => {
+                    delete currentData[key];
+                    renderFields();
+                });
+                
+                container.appendChild(box);
+            }
+        }
+
+        // Add Field
+        document.getElementById('snb-add-field-btn').addEventListener('click', () => {
+            currentData['New_Information_Block'] = "";
+            renderFields();
+        });
+
+        // Save Data
+        document.getElementById('snb-save-db-btn').addEventListener('click', async () => {
+            const newObj = {};
+            const boxes = document.getElementById('snb-fields-container').children;
+            for(let box of boxes) {
+                const key = box.querySelector('.field-key').value.replace(/ /g, '_'); 
+                const val = box.querySelector('.field-val').value;
+                if(key) newObj[key] = val;
+            }
+            currentData = newObj;
+            
+            await setDoc(docRef, currentData);
+            
+            const msg = document.getElementById('snb-save-msg');
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', 3000);
+        });
     </script>
 </body>
 </html>
