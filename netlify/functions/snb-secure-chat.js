@@ -1,20 +1,32 @@
 exports.handler = async function(event, context) {
+    // --- THE CORS VIP PASS (Allows Wix to connect) ---
+    const headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS"
+    };
+
+    // Browser pre-flight check
+    if (event.httpMethod === "OPTIONS") {
+        return { statusCode: 200, headers: headers, body: "OK" };
+    }
+
     if (event.httpMethod !== "POST") {
-        return { statusCode: 200, body: JSON.stringify({ reply: "Method Not Allowed" }) };
+        return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: "Method Not Allowed" }) };
     }
 
     try {
         const body = JSON.parse(event.body);
         const userMessage = body.prompt;
 
-        if (!userMessage) return { statusCode: 200, body: JSON.stringify({ reply: "Prompt is required" }) };
+        if (!userMessage) return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: "Prompt is required" }) };
 
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            return { statusCode: 200, body: JSON.stringify({ reply: "Error: Netlify GEMINI_API_KEY is missing." }) };
+            return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: "Error: Netlify GEMINI_API_KEY is missing." }) };
         }
 
-        // --- NEW CODE: FETCH ALL FIELDS FROM FIREBASE DYNAMICALLY ---
+        // --- FETCH THE BRAIN FROM FIREBASE ---
         let knowledgeBaseText = "";
         try {
             const firebaseUrl = `https://firestore.googleapis.com/v1/projects/snbnchatbot/databases/(default)/documents/snbn_data/brain`;
@@ -22,7 +34,6 @@ exports.handler = async function(event, context) {
             const firestoreData = await firestoreResponse.json();
             
             if (firestoreData.fields) {
-                // Loop through every field Shianne creates and combine them!
                 for (const fieldName in firestoreData.fields) {
                     knowledgeBaseText += `${fieldName.replace(/_/g, ' ')}:\n${firestoreData.fields[fieldName].stringValue}\n\n`;
                 }
@@ -85,13 +96,13 @@ Only use the information provided in the Knowledge Base above. If a user asks a 
         const data = await response.json();
 
         if (!response.ok) {
-            return { statusCode: 200, body: JSON.stringify({ reply: `API Error (${targetModelName}): ${data.error?.message || response.statusText}` }) };
+            return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: `API Error (${targetModelName}): ${data.error?.message || response.statusText}` }) };
         }
 
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't generate a response.";
-        return { statusCode: 200, body: JSON.stringify({ reply: reply }) };
+        return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: reply }) };
 
     } catch (error) {
-        return { statusCode: 200, body: JSON.stringify({ reply: `Server Error: ${error.message}` }) };
+        return { statusCode: 200, headers: headers, body: JSON.stringify({ reply: `Server Error: ${error.message}` }) };
     }
 };
